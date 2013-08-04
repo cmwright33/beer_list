@@ -1,3 +1,4 @@
+require 'pismo'
 require 'nokogiri'
 require 'open-uri'
 require 'pry'
@@ -5,7 +6,7 @@ require 'pry'
 
 
 class Beer
-  attr_accessible :name, :beer_url, :image_url, :brewery, :style, :abv, :available
+  # attr_accessible :name, :beer_url, :image_url, :brewery, :style, :abv, :available
 
   def intialize(name, beer_url, image_url, brewery, style, abv, available)
 
@@ -35,7 +36,7 @@ class Beer
       a_new_beer.brewery = url.xpath("//*[@id='baContent']/table[1]/tbody/tr/td[2]/table/tbody/tr[2]/td/a[1]/b").text
       a_new_beer.stlye = url.xpath("//*[@id='baContent']/table[1]/tbody/tr/td[2]/table/tbody/tr[2]/td/a[5]/b").text
       # remove &nbsp from abv to normalize data and maybe turn it back to integer?
-      a_new_beer.abv = url.xpath("//*[@id='baContent']/table[1]/tbody/tr/td[2]/table/tbody/tr[2]/td/text()[3]").text.gsub(/&nbsp/,'')
+      a_new_beer.abv = url.xpath("//*[@id='baContent']/table[1]/tbody/tr/td[2]/table/tbody/tr[2]/td/text()[3]").text.gsub(/&nbsp/,'').to_f
       # remove &nbsp from availble and normalize string... maybe we change this to boolean??
       a_new_beer.available = url.xpath("//*[@id='baContent']/table[1]/tbody/tr/td[2]/table/tbody/tr[2]/td/text()[4]").text.gsub(/&nbsp/,'')
       a_new_beer.pairings = url.xpath("//*[@id='baSidebar']/div[3]/div/text()").text.gsub(/[\n\t?]/, '').delete("[]()")
@@ -60,9 +61,9 @@ end
 
 # top_beers = []
 
-doc = Nokogiri::XML(open('http://beeradvocate.com/lists/top'))
+# doc = Nokogiri::XML(open('http://beeradvocate.com/lists/top'))
 
-a = doc.xpath('//span[@color="#666666"]/a').map { |link| link['href'] }
+# a = doc.xpath('//span[@color="#666666"]/a').map { |link| link['href'] }
 # # top 250 beers at beer advocate
 # doc = Nokogiri::HTML(open('http://beeradvocate.com/lists/top'))
 
@@ -77,9 +78,37 @@ a = doc.xpath('//span[@color="#666666"]/a').map { |link| link['href'] }
 
 
 
+doc = Pismo::Document.new("http://beeradvocate.com/beer/profile/1199/19960")
 
+doc.keywords
 
+def keywords(options = {})
+  options = { :stem_at => 20, :word_length_limit => 15, :limit => 20, :remove_stopwords => true, :minimum_score => 2 }.merge(options)
 
+  words = {}
+
+  # Convert doc to lowercase, scrub out most HTML tags, then keep track of words
+  cached_title = title.to_s
+  content_to_use = body.to_s.downcase + " " + description.to_s.downcase
+
+  # old regex for safe keeping -- \b[a-z][a-z\+\.\'\+\#\-]*\b
+  content_to_use.downcase.gsub(/\<[^\>]{1,100}\>/, '').gsub(/\.+\s+/, ' ').gsub(/\&\w+\;/, '').scan(/(\b|\s|\A)([a-z0-9][a-z0-9\+\.\'\+\#\-\\]*)(\b|\s|\Z)/i).map{ |ta1| ta1[1] }.compact.each do |word|
+    next if word.length > options[:word_length_limit]
+    word.gsub!(/^[\']/, '')
+    word.gsub!(/[\.\-\']$/, '')
+    next if options[:hints] && !options[:hints].include?(word)
+    words[word] ||= 0
+    words[word] += (cached_title.downcase =~ /\b#{word}\b/ ? 5 : 1)
+  end
+
+  # Stem the words and stop words if necessary
+  d = words.keys.uniq.map { |a| a.length > options[:stem_at] ? a.stem : a }
+  s = Pismo.stopwords.map { |a| a.length > options[:stem_at] ? a.stem : a }
+
+  words.delete_if { |k1, v1| v1 < options[:minimum_score] }
+  words.delete_if { |k1, v1| s.include?(k1) } if options[:remove_stopwords]
+  words.sort_by { |k2, v2| v2 }.reverse.first(options[:limit])
+end
 
 
 
