@@ -8,7 +8,7 @@ require 'pry'
 class Beer
   # attr_accessible :name, :beer_url, :image_url, :brewery, :style, :abv, :available
 
-  def intialize(name, beer_url, image_url, brewery, style, abv, available)
+  def intialize(name, beer_url, image_url, brewery, style, abv, available, pairings, ratings)
 
     @name = name
     @image_url = image_url
@@ -32,7 +32,7 @@ class Beer
   link = "/beer/profile/27039/16814"
 
   def define_beer(a_beer_page)
-    a_beer_page.each do |link|
+    a_beer_page.each_with_index do |link, index|
       url = Nokogiri::XML(open("http://beeradvocate.com#{link}"))
       a_new_beer = Beer.new
       a_new_beer.name = url.xpath("//*[@id='content']/div/div/div/div/div[2]/h1/text()").text
@@ -40,12 +40,12 @@ class Beer
       a_new_beer.image_url = "http://beeradvocate.com#{picture_target}"
       a_new_beer.brewery = url.xpath("//*[@id='baContent']/table[1]/tr/td[2]/table/tr[2]/td/a[1]/b").text
       a_new_beer.stlye = url.xpath("//*[@id='baContent']/table[1]/tr/td[2]/table/tr[2]/td/a[5]/b").text
-      # need to remove string elements from abv to normalize data and maybe turn it back to integer?
+      # need to remove string elements from abv to normalize data and maybe turn it back to float?
       a_new_beer.abv = url.xpath("//*[@id='baContent']/table[1]/tr/td[2]/table/tr[2]/td/text()[7]").text.gsub(/|% /, '').to_f
       # need to remove string elements from availble and normalize string... maybe we change this to boolean??
       a_new_beer.available = url.xpath("//*[@id='baContent']/table[1]/tr/td[2]/table/tr[2]/td/text()[9]").text.gsub(/&nbsp/,'')
       a_new_beer.pairings = url.xpath("//*[@id=\"baSidebar\"]/div[3]/div/text()").text.gsub(/[\n\t?]/, '').delete("[]()")
-
+      a_new_beer.ratings = 251 - index
 
       a_new_beer.save
     end
@@ -62,7 +62,7 @@ def keywords
   #base url for all profiles searched
   url = Nokogiri::XML(open("http://beeradvocate.com#{link}"))
 
-  #this is our individual ratings xpath. this is where we'll preform the search
+  #this is our individual review xpath. this is where we'll preform the search
   comment_content = url.xpath("//*[@id='rating_fullview_content_2']")
 
   #this is our dumby search criteria
@@ -78,11 +78,12 @@ def keywords
     next if word.length > 15
       word.gsub!(/^[\']/, '')
       word.gsub!(/[\.\-\']$/, '')
-    next if word_list.include?(word)
-        if matched_words.has_key?(word)
+    next if word_list.include?(word) && matched_words.has_key?(word)
           matched_words[word] += 1
-        else
+        elsif word_list.include?(word) && !(matched_words.has_key?(word))
           matched_words[word] = 1
+        else
+          "nothing to do here"
       end
     end
 end
