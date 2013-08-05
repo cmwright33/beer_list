@@ -22,9 +22,10 @@ class Beer
   def get_beer_list
     doc = Nokogiri::HTML(open('http://beeradvocate.com/lists/top'))
     l = doc.css('span a').map { |link| link['href'] }
-    beer_links = []
+    @beer_links = []
     l.each_slice(3) {|a| beer_links << a}
-    beer_link.each {|link| a_beer_page << link.first}
+    @a_beer_page = []
+    beer_link.each {|link| @a_beer_page << link.first}
   end
 
 
