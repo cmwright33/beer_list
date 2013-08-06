@@ -63,11 +63,6 @@ class Beer
       # save the information
       a_new_beer.save
 
-      pairing = Pairings.new
-
-      pairings = url.xpath("//*[@id='baSidebar']/div[3]/div/text()").text.gsub(/[\n\t?]/, '').delete("[](),/;").split(" ")
-
-      binding.pry
 
     end
   end
@@ -81,11 +76,10 @@ end
       # go to the location of the pairings, scrub the info and cut the pairings into an array
       pairings = url.xpath("//*[@id='baSidebar']/div[3]/div/text()").text.gsub(/[\n\t?]/, '').delete("[](),/;").split(" ")
       # adds a new pairing
-      pairings.each do |food_type|
-        a_new_pairing.name = food_type
-        a_new_pairing.save
-      end
-
+        pairings.each do |food_type|
+          a_new_pairing.name = food_type
+          a_new_pairing.save
+        end
     end
   end
 
@@ -120,15 +114,15 @@ def keywords
   words = []
     useful_content = comment_content.to_s.downcase.gsub(/\<[^\>]{1,100}\>/, '').gsub(/\.+\s+/, ' ').gsub(/\&\w+\;/, '').scan(/(\b|\s|\A)([a-z0-9][a-z0-9\+\.\'\+\#\-\\]*)(\b|\s|\Z)/i).map{ |ta1| ta1[1] }.compact.each do |word|
     if word_list.include?(word)
-            if matched_words.has_key?(word)
-               matched_words[word] += 1
-            else
-               matched_words[word] = 1
-            end
-        else
+          if matched_words.has_key?(word)
+             matched_words[word] += 1
+          else
+             matched_words[word] = 1
+          end
+    else
           "this won't work"
-        end
     end
+  end
 end
 
 
