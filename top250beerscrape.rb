@@ -8,7 +8,7 @@ require 'pry'
 class Beer
   # attr_accessible :name, :beer_url, :image_url, :brewery, :style, :abv, :available
 
-  def intialize(name, beer_url, image_url, brewery, style, abv, available, pairings, ratings)
+  def intialize(name, beer_url, image_url, brewery, style, abv, available, pairings, ba_ratings)
 
     @name = name
     @image_url = image_url
@@ -20,11 +20,17 @@ class Beer
   end
 
   def get_beer_list
+    # open the beer top 250 beer list
     doc = Nokogiri::HTML(open('http://beeradvocate.com/lists/top'))
+    # pull out the
     l = doc.css('span a').map { |link| link['href'] }
-    @beer_links = []
+    # create the beer links, I may use these later
+    beer_links = []
+    # slice the links into an array within an array
     l.each_slice(3) {|a| beer_links << a}
+    # create the single beer page
     @a_beer_page = []
+    # add the first link to get the individual beer page
     beer_link.each {|link| @a_beer_page << link.first}
   end
 
@@ -33,25 +39,61 @@ class Beer
   link = "/beer/profile/27039/16814"
 
   def define_beer(a_beer_page)
+     # Interate through the individual beer link array
     a_beer_page.each_with_index do |link, index|
-      url = Nokogiri::XML(open("http://beeradvocate.com#{link}"))
+      # add the link to the nokogiri call
+      url = Nokogiri::HTML(open("http://beeradvocate.com#{link}"))
+      # create a beer object
       a_new_beer = Beer.new
+      # add the name to the object
       a_new_beer.name = url.xpath("//*[@id='content']/div/div/div/div/div[2]/h1/text()").text
+      # get the img from the target and added to the image url
       picture_target = url.xpath("//*[@id='baContent']/table[1]/tbody/tr/td[1]/div[1]/img/@src").text
       a_new_beer.image_url = "http://beeradvocate.com#{picture_target}"
+      # adds the brewery name
       a_new_beer.brewery = url.xpath("//*[@id='baContent']/table[1]/tr/td[2]/table/tr[2]/td/a[1]/b").text
+      # add the style/s of beer
       a_new_beer.stlye = url.xpath("//*[@id='baContent']/table[1]/tr/td[2]/table/tr[2]/td/a[5]/b").text
-      # need to remove string elements from abv to normalize data and maybe turn it back to float?
-      a_new_beer.abv = url.xpath("//*[@id='baContent']/table[1]/tr/td[2]/table/tr[2]/td/text()[7]").text.gsub(/|% /, '').to_f
-      # need to remove string elements from availble and normalize string... maybe we change this to boolean??
-      a_new_beer.available = url.xpath("//*[@id='baContent']/table[1]/tr/td[2]/table/tr[2]/td/text()[9]").text.gsub(/&nbsp/,'')
-      a_new_beer.pairings = url.xpath("//*[@id=\"baSidebar\"]/div[3]/div/text()").text.gsub(/[\n\t?]/, '').delete("[]()")
-      a_new_beer.ratings = 251 - index
-
+      # add the beer abv
+      a_new_beer.abv = url.xpath("//*[@id='baContent']/table[1]/tr/td[2]/table/tr[2]/td/text()[7]").text.delete("|" "%").tr('^A-Za-z0-9.', '').to_f
+      # add the availablity to the beer
+      a_new_beer.available = url.xpath("//*[@id='baContent']/table[1]/tr/td[2]/table/tr[2]/td/text()[9]").text.tr('^A-Za-z0-9', "")
+      # create a ratings scheme if you have any conflict in search criteria
+      a_new_beer.ba_ratings = 251 - index
+      # save the information
       a_new_beer.save
+
+      pairing = Pairings.new
+
+      pairings = url.xpath("//*[@id='baSidebar']/div[3]/div/text()").text.gsub(/[\n\t?]/, '').delete("[](),/;").split(" ")
+
+      binding.pry
+
     end
   end
 end
+
+
+  def get_pairings(a_beer_page)
+    a_beer_page.each do |link|
+      # create a new pairing
+      a_new_pairing = Pairings.new
+      # go to the location of the pairings, scrub the info and cut the pairings into an array
+      pairings = url.xpath("//*[@id='baSidebar']/div[3]/div/text()").text.gsub(/[\n\t?]/, '').delete("[](),/;").split(" ")
+      # adds a new pairing
+      pairings.each do |food_type|
+        a_new_pairing.name = food_type
+        a_new_pairing.save
+      end
+
+    end
+  end
+
+
+
+
+
+
 
 
 ## building keyword models
@@ -75,20 +117,60 @@ def keywords
   #if word exists in word_list we check to see if word matchs a key in match_words hash.
   #if it does we increment the number by 1, else we add the word as key and set the value to 1
   matched_words = {}
+  words = []
     useful_content = comment_content.to_s.downcase.gsub(/\<[^\>]{1,100}\>/, '').gsub(/\.+\s+/, ' ').gsub(/\&\w+\;/, '').scan(/(\b|\s|\A)([a-z0-9][a-z0-9\+\.\'\+\#\-\\]*)(\b|\s|\Z)/i).map{ |ta1| ta1[1] }.compact.each do |word|
-    next if word.length > 15
-      word.gsub!(/^[\']/, '')
-      word.gsub!(/[\.\-\']$/, '')
-    next if word_list.include?(word) && matched_words.has_key?(word)
-          matched_words[word] += 1
-        elsif word_list.include?(word) && !(matched_words.has_key?(word))
-          matched_words[word] = 1
+    if word_list.include?(word)
+            if matched_words.has_key?(word)
+               matched_words[word] += 1
+            else
+               matched_words[word] = 1
+            end
         else
-          "nothing to do here"
-      end
+          "this won't work"
+        end
     end
 end
 
+
+match_words.each do |flavor_name, strength|
+  a_flavor = Flavor.new
+  a_flavor.name = matched_words[flavor_name]
+  a_association = Name.new()
+  end
+
+
+
+
+["earthy", "peppery", "botanic", 'pithy', 'dry', "beerries", "orchard fruit", "woody", "elderflower", "hedgerow", "herbal", "grassy"]
+
+
+
+
+
+# string = "Can. Hazy, yellow/straw liquid small to medium white/light off-white head.
+# Aroma of fresh hops, citrus grapefruit, citrus, cereal malt, lemon grass, orange peel,
+# tangerines and blackberries. Awesome. Taste is dry and medium to, grass high bitter with
+# lots of fresh, hoppy notes of grass, grapefruit and tangerine. Medium bodied with
+# nice carbonation. Very well brewed DIPA. Love the fresh hoppy notes."
+
+
+# new_array_of_string = string.delete("\n" "," ".").split(" ")
+
+# matched_words = {}
+# word_list = ["citrus", "fruit", "grass"]
+
+# new_array_of_string.each do |word|
+
+#   if word_list.include?(word)
+#       if matched_words.has_key?(word)
+#         matched_words[word] += 1
+#       else
+#         matched_words[word] = 1
+#       end
+#   else
+#     "this wont work"
+#   end
+# end
 
 
 
